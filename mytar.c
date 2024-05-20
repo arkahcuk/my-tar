@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_MESSAGE_LENGTH 100
+#define BLOCK_SIZE 512
+
 void print_usage() {
 	printf("Usage: mytar [options] [file...]\n");
 	printf("Options:\n");
@@ -23,7 +26,7 @@ void exit_with_code(int exit_code, char *message) {
 
 int block_is_zero(char *block) {
 	int comparison_result;
-	for (int i = 0; i < 512; i++) {
+	for (int i = 0; i < BLOCK_SIZE; i++) {
 		comparison_result = (block[i] == '\0');
 		if (!comparison_result) 
 			break;
@@ -31,9 +34,8 @@ int block_is_zero(char *block) {
 	return comparison_result;
 }
 
-int ends_with_tar(char *str)
-{
-	char suffix[] = ".tar";
+int ends_with_tar(char *str){
+	const char suffix[] = ".tar";
 	size_t lenstr = strlen(str);
 	size_t lensuffix = strlen(suffix);
 	if (lensuffix > lenstr)
@@ -51,7 +53,7 @@ int main(int argc, char *argv[]) {
 		exit_with_code(2, "need at least one option");
 
 	int exit_code = 0;
-	char err_message[256];
+	char err_message[MAX_MESSAGE_LENGTH];
 	FILE *archive = NULL;
 	int number_of_files_to_list = argc - number_of_options - 2;
 	char *files_to_list[number_of_files_to_list];
@@ -104,14 +106,14 @@ int main(int argc, char *argv[]) {
 		exit_with_code(2, "No archive file specified");
 	
 	/* reading the archive */
-	char block[512];
+	char block[BLOCK_SIZE];
 	char filename[100];
 	char filetype;
 	char size_str[12];
 	unsigned long long file_size;
 	int number_of_blocks;
 
-	while (fread(block, 1, 512, archive) == 512) {
+	while (fread(block, 1, BLOCK_SIZE, archive) == BLOCK_SIZE) {
 		if (block[0] == '\0')				/* end of archive */
 			break;
 
@@ -120,7 +122,7 @@ int main(int argc, char *argv[]) {
 		strncpy(size_str, block + 124, 12);		/* size		is at offset 124,  12 bytes */
 		filetype = block[156]; 				/* type 	is at offset 156,   1 byte  */
 		file_size = strtol(size_str, NULL, 8);
-		number_of_blocks = 1 + (file_size - 1) / 512;
+		number_of_blocks = 1 + (file_size - 1) / BLOCK_SIZE;
 
 		if (filetype != '0') {				/* 0 signifies regular file */
 			sprintf(err_message, "Unsupported header type: %d\n", (int)filetype);
@@ -144,7 +146,7 @@ int main(int argc, char *argv[]) {
 
 		/* reading the file content */
 		for (int i = 0; i < number_of_blocks; i++) {
-			if (fread(block, 1, 512, archive) != 512) {
+			if (fread(block, 1, BLOCK_SIZE, archive) != BLOCK_SIZE) {
 				fprintf(stderr, "mytar: Unexpected EOF in archive\n");
 				sprintf(err_message, "Error is not recoverable: exiting now\n");
 				exit_code = 2;
@@ -155,8 +157,8 @@ int main(int argc, char *argv[]) {
 
 	/* checking for a lone zero block at the end of the archive */
 	if (block_is_zero(block)) {
-		if (fread(block, 1, 512, archive) != 512 || !block_is_zero(block))
-			fprintf(stderr, "mytar: A lone zero block at %ld\n", ftell(archive)/512);
+		if (fread(block, 1, BLOCK_SIZE, archive) != BLOCK_SIZE || !block_is_zero(block))
+			fprintf(stderr, "mytar: A lone zero block at %ld\n", ftell(archive)/BLOCK_SIZE);
 	}
 
 	/* -t option: checking if all files were found */
