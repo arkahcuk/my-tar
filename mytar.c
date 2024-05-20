@@ -3,6 +3,11 @@
 #include <string.h>
 
 #define MAX_MESSAGE_LENGTH 100
+#define FILE_NAME_LENGTH 100
+#define FILE_SIZE_LENGTH 12
+#define FILE_NAME_OFFSET 0
+#define FILE_SIZE_OFFSET 124
+#define FILE_TYPE_OFFSET 156
 #define BLOCK_SIZE 512
 
 void print_usage() {
@@ -34,7 +39,7 @@ int block_is_zero(char *block) {
 	return comparison_result;
 }
 
-int ends_with_tar(char *str){
+int ends_with_tar(char *str) {
 	const char suffix[] = ".tar";
 	size_t lenstr = strlen(str);
 	size_t lensuffix = strlen(suffix);
@@ -55,7 +60,7 @@ int main(int argc, char *argv[]) {
 	int exit_code = 0;
 	char err_message[MAX_MESSAGE_LENGTH];
 	FILE *archive = NULL;
-	int number_of_files_to_list = argc - number_of_options - 2;
+	const int number_of_files_to_list = argc - number_of_options - 2;
 	char *files_to_list[number_of_files_to_list];
 	
 	/* parsing options */
@@ -107,9 +112,9 @@ int main(int argc, char *argv[]) {
 	
 	/* reading the archive */
 	char block[BLOCK_SIZE];
-	char filename[100];
+	char filename[FILE_NAME_LENGTH];
 	char filetype;
-	char size_str[12];
+	char size_str[FILE_SIZE_LENGTH];
 	unsigned long long file_size;
 	int number_of_blocks;
 
@@ -118,9 +123,9 @@ int main(int argc, char *argv[]) {
 			break;
 
 		/* reading the header */
-		strncpy(filename, block, 100);			/* filename	is at offset   0, 100 bytes */
-		strncpy(size_str, block + 124, 12);		/* size		is at offset 124,  12 bytes */
-		filetype = block[156]; 				/* type 	is at offset 156,   1 byte  */
+		strncpy(filename, block + FILE_NAME_OFFSET, FILE_NAME_LENGTH);
+		strncpy(size_str, block + FILE_SIZE_OFFSET, FILE_SIZE_LENGTH);
+		filetype = block[FILE_TYPE_OFFSET];
 		file_size = strtol(size_str, NULL, 8);
 		number_of_blocks = 1 + (file_size - 1) / BLOCK_SIZE;
 
