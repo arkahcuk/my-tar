@@ -1,6 +1,7 @@
 *.txt
 *.tar
 a/
+b/
 
 # Prerequisites
 *.d
