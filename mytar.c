@@ -27,7 +27,6 @@ void exit_with_code(int exit_code, char *message) {
 	if (exit_code != 0) {
 		if (message != NULL)
 			fprintf(stderr, "mytar: %s\n", message);
-		// printUsage();
 	}
 	exit(exit_code);
 }
@@ -81,14 +80,7 @@ int main(int argc, char *argv[]) {
 				case 'f':
 					if (arg_index + 1 >= argc)
 						exit_with_code(2, "No archive file specified");
-					//printf("%s\n", argv[++arg_index]);
 					archive = fopen(argv[++arg_index], "r");
-					//for (int i = 1; i < argc; i++) {
-					//	if (ends_with_tar(argv[i])) {
-					//		archive = fopen(argv[i], "r");
-					//		break;
-					//	}
-					//}
 					if (archive == NULL)
 						exit_with_code(2, "No archive file specified");
 					break;
@@ -215,7 +207,7 @@ int main(int argc, char *argv[]) {
 		/* reading the file content */
 		for (int i = 0; i < number_of_blocks; i++) {
 			block_read = fread(block, 1, BLOCK_SIZE, archive);
-			int bytes_to_write = (i == number_of_blocks - 1) ? file_size % BLOCK_SIZE : BLOCK_SIZE;
+			int bytes_to_write = (i == number_of_blocks - 1) ? (file_size - i * BLOCK_SIZE) : BLOCK_SIZE;
 			bytes_to_write = (block_read < bytes_to_write) ? block_read : bytes_to_write;
 			if (extract_this_file && file_to_extract != NULL && bytes_to_write > 0) {
 				/* -x option: writing the file content */
