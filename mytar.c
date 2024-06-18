@@ -41,15 +41,6 @@ int block_is_zero(char *block) {
 	return comparison_result;
 }
 
-int ends_with_tar(char *str) {
-	const char suffix[] = ".tar";
-	size_t lenstr = strlen(str);
-	size_t lensuffix = strlen(suffix);
-	if (lensuffix > lenstr)
-        	return 0;
-	return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
-}
-
 int main(int argc, char *argv[]) {
 	int number_of_options = 0;
 	for (int i = 1; i < argc; i++) {
@@ -65,8 +56,8 @@ int main(int argc, char *argv[]) {
 	const int number_of_specified_files = argc - number_of_options - 2;
 	char *specified_files[number_of_specified_files];
 	int list_mode = 0;
-	int verbose_mode = 0;
 	int extract_mode = 0;
+	int verbose_mode = 0;
 	
 	/* parsing options */
 	for (int arg_index = 1; arg_index < argc; arg_index++) {
@@ -88,13 +79,6 @@ int main(int argc, char *argv[]) {
 					if (extract_mode)
 						exit_with_code(2, "Cannot specify -t and -x at the same time");
 					list_mode = 1;
-					for (int i = 1, j = 0; i < argc; i++) {
-						if ((argv[i][0] != '-' || strlen(argv[i]) != 2)) {
-							specified_files[j++] = argv[i];	
-						} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
-							i++;
-						}
-					}
 					break;
 				case 'v':
 					verbose_mode = 1;
@@ -103,13 +87,6 @@ int main(int argc, char *argv[]) {
 					if (list_mode)
 						exit_with_code(2, "Cannot specify -t and -x at the same time");
 					extract_mode = 1;
-					for (int i = 1, j = 0; i < argc; i++) {
-						if ((argv[i][0] != '-' || strlen(argv[i]) != 2)) {
-							specified_files[j++] = argv[i];	
-						} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
-							i++;
-						}
-					}
 					break;
 				default:
 					if (archive != NULL)
@@ -117,6 +94,18 @@ int main(int argc, char *argv[]) {
 					sprintf(err_message, "Unknown option '%s'", argv[arg_index]);
 					exit_with_code(2, err_message);
 			}
+		}
+	}
+
+	/* -t -x options: checking for specified files */
+	if (list_mode || extract_mode) {
+		for (int i = 1, j = 0; i < argc; i++) {
+			/* remember all specified files to list/extract */
+			if ((argv[i][0] != '-' || strlen(argv[i]) != 2))
+				specified_files[j++] = argv[i];	
+			/* skip the archive name argument */
+			else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
+				i++;
 		}
 	}
 
@@ -158,37 +147,31 @@ int main(int argc, char *argv[]) {
 			exit_code = 2;
 			goto cleanup;
 		}
-		
-		if (list_mode) {
-			/* -t option: checking if the file was specified */
-			if (number_of_specified_files > 0) {
-				for (int i = 0; i < number_of_specified_files; i++) {
-					if (specified_files[i] != NULL && strcmp(filename, specified_files[i]) == 0) {
-						specified_files[i] = NULL;
+
+		/* checking for specified files*/
+		if (number_of_specified_files > 0) {
+			for (int i = 0; i < number_of_specified_files; i++) {
+				/* skipping unspecified files */
+				if (specified_files[i] != NULL && strcmp(filename, specified_files[i]) == 0) {
+					specified_files[i] = NULL;
+					if (list_mode)
+						/* -t option: listing the specified file */
 						printf("%s\n", filename);
-						break;
-					}
-				}
-			}
-
-			/* -t option: no files to list were specified */
-			else printf("%s\n", filename);
-		}
-
-		if (extract_mode) {
-			/* -x option: checking if the file was specified */
-			if (number_of_specified_files > 0) {
-				for (int i = 0; i < number_of_specified_files; i++) {
-					if (specified_files[i] != NULL && strcmp(filename, specified_files[i]) == 0) {
-						specified_files[i] = NULL;
+					if (extract_mode)
+						/* -x option: extracting the specified file */
 						extract_this_file = 1;
-						break;
-					}
+					break;
 				}
 			}
-
-			/* -x option: no files to extract were specified; extracting all files */
-			else extract_this_file = 1;
+		}
+		/* no files were specified */
+		else {
+			if (list_mode)
+				/* -t option: listing all files */
+				printf("%s\n", filename);
+			if (extract_mode)
+				/* -x option: extracting all files */
+				extract_this_file = 1;
 		}
 
 		if (extract_this_file) {
@@ -234,7 +217,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "mytar: A lone zero block at %ld\n", ftell(archive)/BLOCK_SIZE);
 	}
 
-	/* -t -x options: checking if all files were found */
+	/* -t -x options: checking if all specified files were found */
 	for (int i = 0; i < number_of_specified_files; i++) {
 		if (specified_files[i] != NULL) {
 			fprintf(stderr, "mytar: %s: Not found in archive\n", specified_files[i]);
