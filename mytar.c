@@ -3,16 +3,16 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define MAX_MESSAGE_LENGTH 100
-#define FILE_NAME_LENGTH 100
-#define FILE_SIZE_LENGTH 12
-#define FILE_NAME_OFFSET 0
-#define FILE_SIZE_OFFSET 124
-#define FILE_TYPE_OFFSET 156
-#define MAGIC_OFFSET 257
-#define MAGIC_SIZE 5
-#define TAR_MAGIC "ustar"
-#define BLOCK_SIZE 512
+#define	MAX_MESSAGE_LENGTH 100
+#define	FILE_NAME_LENGTH 100
+#define	FILE_SIZE_LENGTH 12
+#define	FILE_NAME_OFFSET 0
+#define	FILE_SIZE_OFFSET 124
+#define	FILE_TYPE_OFFSET 156
+#define	MAGIC_OFFSET 257
+#define	MAGIC_SIZE 5
+#define	TAR_MAGIC "ustar"
+#define	BLOCK_SIZE 512
 
 void print_usage() {
 	printf("Usage: mytar [options] [file...]\n");
@@ -36,10 +36,10 @@ int block_is_zero(char *block) {
 	int comparison_result;
 	for (int i = 0; i < BLOCK_SIZE; i++) {
 		comparison_result = (block[i] == '\0');
-		if (!comparison_result) 
+		if (!comparison_result)
 			break;
 	}
-	return comparison_result;
+	return (comparison_result);
 }
 
 int main(int argc, char *argv[]) {
@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
 	if (number_of_options < 1)
 		exit_with_code(2, "need at least one option");
 
-	const unsigned int number_of_specified_files 
-		= (argc - number_of_options - 2 > 0) ? (argc - number_of_options - 2) : 0;
+	const int args_to_parse = argc - number_of_options - 2;
+	const unsigned int number_of_specified_files = (args_to_parse > 0) ? args_to_parse : 0;
 	char *specified_files[number_of_specified_files];
 	int exit_code = 0;
 	char err_message[MAX_MESSAGE_LENGTH];
@@ -60,8 +60,7 @@ int main(int argc, char *argv[]) {
 	bool list_mode = false;
 	bool extract_mode = false;
 	bool verbose_mode = false;
-		
-	
+
 	/* parsing options */
 	for (int arg_index = 1; arg_index < argc; arg_index++) {
 		if (argv[arg_index][0] == '-' && strlen(argv[arg_index]) == 2) {
@@ -109,9 +108,8 @@ int main(int argc, char *argv[]) {
 		for (int i = 1, j = 0; i < argc; i++) {
 			if ((argv[i][0] != '-' || strlen(argv[i]) != 2)) {
 				/* remember all specified files to list/extract */
-				specified_files[j++] = argv[i];	
-			}
-			else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+				specified_files[j++] = argv[i];
+			} else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
 				/* skip the archive name argument */
 				i++;
 			}
@@ -140,9 +138,9 @@ int main(int argc, char *argv[]) {
 			break;
 
 		/* reading the header */
-		strncpy(filename, block + FILE_NAME_OFFSET, sizeof(filename));
-		strncpy(size_str, block + FILE_SIZE_OFFSET, sizeof(size_str));
-		strncpy(magic, block + MAGIC_OFFSET, sizeof(magic));
+		strncpy(filename, block + FILE_NAME_OFFSET, sizeof (filename));
+		strncpy(size_str, block + FILE_SIZE_OFFSET, sizeof (size_str));
+		strncpy(magic, block + MAGIC_OFFSET, sizeof (magic));
 		filetype = block[FILE_TYPE_OFFSET];
 		file_size = strtol(size_str, NULL, 8);
 		number_of_blocks = 1 + (file_size - 1) / BLOCK_SIZE;
@@ -162,7 +160,7 @@ int main(int argc, char *argv[]) {
 			goto cleanup;
 		}
 
-		/* checking for specified files*/
+		/* checking for specified files */
 		if (number_of_specified_files > 0) {
 			for (unsigned int i = 0; i < number_of_specified_files; i++) {
 				/* skipping unspecified files */
@@ -200,7 +198,7 @@ int main(int argc, char *argv[]) {
 				sprintf(err_message, "Error is not recoverable: exiting now");
 				exit_code = 2;
 				goto cleanup;
-			} 
+			}
 			if (verbose_mode)
 				printf("%s\n", filename);
 		}
@@ -249,7 +247,7 @@ error_occurred:
 
 cleanup:
 	if (archive != NULL)
-		fclose(archive);	
+		fclose(archive);
 
 	exit_with_code(exit_code, err_message);
 }
