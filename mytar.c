@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define MAX_MESSAGE_LENGTH 100
 #define FILE_NAME_LENGTH 100
@@ -50,14 +51,16 @@ int main(int argc, char *argv[]) {
 	if (number_of_options < 1)
 		exit_with_code(2, "need at least one option");
 
+	const unsigned int number_of_specified_files 
+		= (argc - number_of_options - 2 > 0) ? (argc - number_of_options - 2) : 0;
+	char *specified_files[number_of_specified_files];
 	int exit_code = 0;
 	char err_message[MAX_MESSAGE_LENGTH];
 	FILE *archive = NULL;
-	const int number_of_specified_files = argc - number_of_options - 2;
-	char *specified_files[number_of_specified_files];
-	int list_mode = 0;
-	int extract_mode = 0;
-	int verbose_mode = 0;
+	bool list_mode = false;
+	bool extract_mode = false;
+	bool verbose_mode = false;
+		
 	
 	/* parsing options */
 	for (int arg_index = 1; arg_index < argc; arg_index++) {
@@ -72,21 +75,19 @@ int main(int argc, char *argv[]) {
 					if (arg_index + 1 >= argc)
 						exit_with_code(2, "No archive file specified");
 					archive = fopen(argv[++arg_index], "r");
-					if (archive == NULL)
-						exit_with_code(2, "No archive file specified");
 					break;
 				case 't':
 					if (extract_mode)
 						exit_with_code(2, "Cannot specify -t and -x at the same time");
-					list_mode = 1;
+					list_mode = true;
 					break;
 				case 'v':
-					verbose_mode = 1;
+					verbose_mode = true;
 					break;
 				case 'x':
 					if (list_mode)
 						exit_with_code(2, "Cannot specify -t and -x at the same time");
-					extract_mode = 1;
+					extract_mode = true;
 					break;
 				default:
 					if (archive != NULL)
@@ -97,16 +98,28 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (archive == NULL) {
+		sprintf(err_message, "No archive file specified");
+		exit_code = 2;
+		goto cleanup;
+	}
+
 	/* -t -x options: checking for specified files */
 	if (list_mode || extract_mode) {
 		for (int i = 1, j = 0; i < argc; i++) {
-			/* remember all specified files to list/extract */
-			if ((argv[i][0] != '-' || strlen(argv[i]) != 2))
+			if ((argv[i][0] != '-' || strlen(argv[i]) != 2)) {
+				/* remember all specified files to list/extract */
 				specified_files[j++] = argv[i];	
-			/* skip the archive name argument */
-			else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
+			}
+			else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+				/* skip the archive name argument */
 				i++;
+			}
 		}
+	} else {
+		sprintf(err_message, "Specify at least one of options \"-tx\"");
+		exit_code = 2;
+		goto cleanup;
 	}
 
 	/* reading the archive */
@@ -116,23 +129,24 @@ int main(int argc, char *argv[]) {
 	char magic[MAGIC_SIZE];
 	char size_str[FILE_SIZE_LENGTH];
 	unsigned long long file_size;
-	int number_of_blocks;
+	unsigned int number_of_blocks;
 	FILE *file_to_extract = NULL;
-	int extract_this_file;
-	int block_read;
+	bool extract_this_file;
+	unsigned int block_read;
+	unsigned int number_of_bytes_to_write;
 
 	while (fread(block, 1, BLOCK_SIZE, archive) == BLOCK_SIZE) {
 		if (block[0] == '\0')				/* end of archive */
 			break;
 
 		/* reading the header */
-		strncpy(filename, block + FILE_NAME_OFFSET, FILE_NAME_LENGTH);
-		strncpy(size_str, block + FILE_SIZE_OFFSET, FILE_SIZE_LENGTH);
-		strncpy(magic, block + MAGIC_OFFSET, MAGIC_SIZE);
+		strncpy(filename, block + FILE_NAME_OFFSET, sizeof(filename));
+		strncpy(size_str, block + FILE_SIZE_OFFSET, sizeof(size_str));
+		strncpy(magic, block + MAGIC_OFFSET, sizeof(magic));
 		filetype = block[FILE_TYPE_OFFSET];
 		file_size = strtol(size_str, NULL, 8);
 		number_of_blocks = 1 + (file_size - 1) / BLOCK_SIZE;
-		extract_this_file = 0;
+		extract_this_file = false;
 
 		/* checking the magic if file is an archive */
 		if (strncmp(magic, TAR_MAGIC, MAGIC_SIZE) != 0) {
@@ -150,28 +164,32 @@ int main(int argc, char *argv[]) {
 
 		/* checking for specified files*/
 		if (number_of_specified_files > 0) {
-			for (int i = 0; i < number_of_specified_files; i++) {
+			for (unsigned int i = 0; i < number_of_specified_files; i++) {
 				/* skipping unspecified files */
 				if (specified_files[i] != NULL && strcmp(filename, specified_files[i]) == 0) {
 					specified_files[i] = NULL;
-					if (list_mode)
+					if (list_mode) {
 						/* -t option: listing the specified file */
 						printf("%s\n", filename);
-					if (extract_mode)
+					}
+					if (extract_mode) {
 						/* -x option: extracting the specified file */
-						extract_this_file = 1;
+						extract_this_file = true;
+					}
 					break;
 				}
 			}
 		}
 		/* no files were specified */
 		else {
-			if (list_mode)
+			if (list_mode) {
 				/* -t option: listing all files */
 				printf("%s\n", filename);
-			if (extract_mode)
+			}
+			if (extract_mode) {
 				/* -x option: extracting all files */
-				extract_this_file = 1;
+				extract_this_file = true;
+			}
 		}
 
 		if (extract_this_file) {
@@ -188,13 +206,13 @@ int main(int argc, char *argv[]) {
 		}
 
 		/* reading the file content */
-		for (int i = 0; i < number_of_blocks; i++) {
+		for (unsigned int i = 0; i < number_of_blocks; i++) {
 			block_read = fread(block, 1, BLOCK_SIZE, archive);
-			int bytes_to_write = (i == number_of_blocks - 1) ? (file_size - i * BLOCK_SIZE) : BLOCK_SIZE;
-			bytes_to_write = (block_read < bytes_to_write) ? block_read : bytes_to_write;
-			if (extract_this_file && file_to_extract != NULL && bytes_to_write > 0) {
+			number_of_bytes_to_write = (i == number_of_blocks - 1) ? (file_size - i * BLOCK_SIZE) : BLOCK_SIZE;
+			number_of_bytes_to_write = (block_read < number_of_bytes_to_write) ? block_read : number_of_bytes_to_write;
+			if (extract_this_file && file_to_extract != NULL && number_of_bytes_to_write > 0) {
 				/* -x option: writing the file content */
-				fwrite(block, 1, bytes_to_write, file_to_extract);
+				fwrite(block, 1, number_of_bytes_to_write, file_to_extract);
 			}
 			if (block_read != BLOCK_SIZE) {
 				fprintf(stderr, "mytar: Unexpected EOF in archive\n");
@@ -214,11 +232,11 @@ int main(int argc, char *argv[]) {
 	/* checking for a lone zero block at the end of the archive */
 	if (block_is_zero(block)) {
 		if (fread(block, 1, BLOCK_SIZE, archive) != BLOCK_SIZE || !block_is_zero(block))
-			fprintf(stderr, "mytar: A lone zero block at %ld\n", ftell(archive)/BLOCK_SIZE);
+			fprintf(stderr, "mytar: A lone zero block at %ld\n", ftell(archive) / BLOCK_SIZE);
 	}
 
 	/* -t -x options: checking if all specified files were found */
-	for (int i = 0; i < number_of_specified_files; i++) {
+	for (unsigned int i = 0; i < number_of_specified_files; i++) {
 		if (specified_files[i] != NULL) {
 			fprintf(stderr, "mytar: %s: Not found in archive\n", specified_files[i]);
 			exit_code = 2;
