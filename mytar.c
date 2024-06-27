@@ -17,11 +17,11 @@
 void print_usage() {
 	printf("Usage: mytar [options] [file...]\n");
 	printf("Options:\n");
-	printf("  -h         : display this message and exit\n");
-	printf("  -f <file>  : use archive file <file>\n");
-	printf("  -t [files] : list archive contents\n");
-	printf("  -v         : verbose mode\n");
-	printf("  -x         : extract archive contents\n");
+	printf("  -h          : display this message and exit\n");
+	printf("  -f <file>   : use archive file <file>\n");
+	printf("  -t [files]  : list archive contents\n");
+	printf("  -v          : verbose mode\n");
+	printf("  -x [files]  : extract archive contents\n");
 }
 
 void exit_with_code(int exit_code, char *message) {
