@@ -28,6 +28,7 @@ void exit_with_code(int exit_code, char *message) {
 	if (exit_code != 0) {
 		if (message != NULL)
 			fprintf(stderr, "mytar: %s\n", message);
+		print_usage();
 	}
 	exit(exit_code);
 }
