@@ -1,7 +1,12 @@
+# Testing files
 *.txt
 *.tar
 a/
 b/
+
+# IDE files
+.vscode/
+.idea/
 
 # Prerequisites
 *.d
